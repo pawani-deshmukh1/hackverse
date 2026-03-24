@@ -32,6 +32,9 @@ async def process_audio(request: AnalyzeRequest):
         # Dynamically grab the audio whether your schema named it 'audio_data' or 'audio_base64'
         raw_b64 = request.audio_data if hasattr(request, 'audio_data') else getattr(request, 'audio_base64', '')
         
+        # ADD THIS LINE: Strip the HTML header if it slipped through!
+        if "," in raw_b64: raw_b64 = raw_b64.split(",")[1]
+        
         # 1. Acoustic Math (Librosa + FFmpeg)
         from services.audio_processor import analyze_and_plot_audio
         acoustic_data = analyze_and_plot_audio(raw_b64)

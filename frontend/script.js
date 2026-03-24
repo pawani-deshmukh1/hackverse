@@ -185,56 +185,106 @@ function setLoading(val) {
 
 // ─── Render ──────────────────────────────────────────────────────────────────
 function renderResults(data) {
-  const { confidence, risk, spectrogram } = data;
+  const { confidence, risk, reason, transcript, highlighted_words, spectrogram, duration, snr, engine } = data;
 
   resultsSection.classList.remove('hidden');
 
-  // 🧠 FIX 1: Spectrogram fallback
-  if (spectrogram) {
+  // --- 1. SPECTROGRAM ---
+  if (spectrogram && spectrogram.length > 10) {
     spectrogramImg.src = `data:image/png;base64,${spectrogram}`;
     spectrogramImg.classList.remove('hidden');
-
     spectrogramRender.src = `data:image/png;base64,${spectrogram}`;
     spectrogramRender.classList.remove('hidden');
-
     spectroIdle.classList.add('hidden');
   } else {
-    spectrogramRender.classList.add('hidden');
-    spectrogramImg.classList.add('hidden');
-    spectroIdle.classList.remove('hidden');
+    console.warn("Spectrogram missing or empty.");
   }
 
-  // 🧠 FIX 2: Better color logic
-  let color = "#00ff41";
-  if (confidence > 70) color = "#ff2222";
-  else if (confidence > 40) color = "#ffcc00";
+  // --- 2. COLORS & SCORES ---
+  let color = "#00ff41"; // Green (Safe)
+  let riskText = "LOW RISK";
+  
+  if (risk === "HIGH" || confidence > 70) {
+      color = "#ff2222"; // Red
+      riskText = "HIGH RISK";
+  } else if (risk === "MEDIUM" || confidence > 40) {
+      color = "#ffcc00"; // Yellow
+      riskText = "MEDIUM RISK";
+  }
 
+  // Main Confidence Matrix (Section 04)
   confBar.style.width = confidence + "%";
   confBar.style.background = color;
-
   scoreNumber.textContent = confidence + "%";
   scoreNumber.style.color = color;
+  riskBadge.textContent = riskText;
+  riskBadge.style.color = color;
+  attackType.textContent = risk === "HIGH" ? "SYNTHETIC_CLONE" : "NONE";
 
-  // Metadata
+  // Forensic Report Section (Section 03)
+  $('forensic-ring-pct').textContent = confidence + "%";
+  $('forensic-ring-pct').style.color = color;
+  $('forensic-conf-pct').textContent = confidence + "%";
+  $('confidence-bar').style.width = confidence + "%";
+  $('confidence-bar').style.background = color;
+
+  let humanScore = (100 - confidence).toFixed(1);
+  $('forensic-human-pct').textContent = humanScore + "%";
+  $('forensic-human-bar').style.width = humanScore + "%";
+
+  // --- 3. METADATA ---
   metadataStrip.classList.remove('hidden');
-  metaDuration.textContent = data.duration + "s";
-  metaSnr.textContent = data.snr + " dB";
-  metaEngine.textContent = data.engine;
+  metaDuration.textContent = duration + "s";
+  metaSnr.textContent = snr + " dB";
+  metaEngine.textContent = engine || "Wav2Vec2 + Gemini";
 
-  // Transcript
-  let text = data.transcript;
-  data.highlighted_words.forEach(w => {
-    const re = new RegExp(`\\b${w}\\b`, "gi");
-    text = text.replace(re, `<span class="suspicious">${w}</span>`);
-  });
+  // --- 4. LISTS (Anomalies & Reasons) ---
+  const reasonListEl = $('reasonList');
+  const reasoningListEl = $('reasoning-list');
+  reasonListEl.innerHTML = "";
+  reasoningListEl.innerHTML = "";
+
+  if (Array.isArray(reason)) {
+      reason.forEach(r => {
+          // Section 05 List
+          const li = document.createElement('li');
+          li.className = "font-mono text-xs text-white/70 flex items-start gap-2";
+          li.innerHTML = `<span class="text-neon/40">></span> ${r}`;
+          reasonListEl.appendChild(li);
+
+          // Section 03 Anomaly Flags
+          const fLi = document.createElement('li');
+          fLi.className = "f-reason";
+          fLi.innerHTML = `<span class="f-icon">[!]</span> <span>${r}</span>`;
+          reasoningListEl.appendChild(fLi);
+      });
+  }
+
+  // --- 5. REPORT SUMMARY TEXT ---
+  $('reportType').textContent = risk === "HIGH" ? "AI_GENERATED" : "HUMAN_VOICE";
+  $('reportType').style.color = color;
+  $('reportConf').textContent = confidence + "%";
+  $('reportRisk').textContent = riskText;
+  $('reportRisk').style.color = color;
+
+  // --- 6. TRANSCRIPT ---
+  let text = transcript || "No reasoning provided.";
+  if (highlighted_words && Array.isArray(highlighted_words)) {
+      highlighted_words.forEach(w => {
+        const re = new RegExp(`\\b${w}\\b`, "gi");
+        text = text.replace(re, `<span class="suspicious">${w}</span>`);
+      });
+  }
   transcriptBox.innerHTML = text;
 
-  // Action
-  if (risk === "HIGH") {
+  // --- 7. ACTION ALERT ---
+  if (risk === "HIGH" || confidence > 70) {
     actionTitle.textContent = "⚠ DO NOT TRUST";
-    actionMessage.textContent = "High risk AI audio detected.";
+    actionMessage.textContent = "High risk AI audio detected. Proceed with extreme caution.";
+    actionAlert.style.borderColor = "#ff2222";
   } else {
     actionTitle.textContent = "✅ SAFE AUDIO";
-    actionMessage.textContent = "Audio seems authentic.";
+    actionMessage.textContent = "Audio clears neural inspection. No synthetic markers found.";
+    actionAlert.style.borderColor = "#00ff41";
   }
 }
