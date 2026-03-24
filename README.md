@@ -38,7 +38,7 @@ There is no reliable real-time system to verify voice authenticity.
 
 ## 🛠️ Tech Stack Used
 
-* **Backend:** FastAPI, PyTorch, Librosa, Pydantic v2.
+* **Backend:** FastAPI, PyTorch, Librosa, Pydantic v2, mo-thecreator/Deepfake-audio-detection.
 * **Frontend:** Vanilla JS, HTML5, Tailwind CSS (optimized for zero-latency capture).
 * **Deployment:** Git LFS (Architecture) + Google Drive (Model Weights Mirror).
 
