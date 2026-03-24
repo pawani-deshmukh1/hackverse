@@ -1,61 +1,68 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 import uvicorn
 import logging
 
-from routes.analyze import router as analyze_router
-from routes.health import router as health_router
+# Ensure we use the actual integrated orchestrator from earlier!
+from orchestrator import analyze as run_orchestrator
+from schemas import AnalyzeRequest
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
-)
-logger = logging.getLogger("audioauth")
+# Set up logging for the hackathon presentation
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("audioauth.gateway")
 
+app = FastAPI(title="AudioAuth Core API")
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("🎙️  AudioAuth API starting up...")
-    logger.info("Primary  : Gemini API")
-    logger.info("Fallback : Ollama (llama3.1)")
-    yield
-    logger.info("AudioAuth API shutting down.")
-
-
-app = FastAPI(
-    title="AudioAuth API",
-    description="AI vs Human voice classification engine — supports Tamil, English, Hindi, Malayalam, Telugu",
-    version="1.0.0",
-    lifespan=lifespan,
-)
-
+# Allow the frontend to talk to the backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(analyze_router, prefix="/api/v1", tags=["Analysis"])
-app.include_router(health_router, prefix="/api/v1", tags=["Health"])
-
-
-@app.get("/", tags=["Root"])
-async def root():
-    return {
-        "service": "AudioAuth API",
-        "version": "1.0.0",
-        "status": "running",
-        "docs": "/docs",
-        "endpoints": {
-            "analyze": "POST /api/v1/analyze",
-            "health":  "GET  /api/v1/health",
-            "models":  "GET  /api/v1/models",
+# --- API ENDPOINT ---
+@app.post("/api/v1/analyze")
+async def process_audio(request: AnalyzeRequest):
+    try:
+        logger.info(f"Incoming audio stream. Language: {request.language}")
+        
+        # --- THE SAFETY NET ---
+        # Dynamically grab the audio whether your schema named it 'audio_data' or 'audio_base64'
+        raw_b64 = request.audio_data if hasattr(request, 'audio_data') else getattr(request, 'audio_base64', '')
+        
+        # 1. Acoustic Math (Librosa + FFmpeg)
+        from services.audio_processor import analyze_and_plot_audio
+        acoustic_data = analyze_and_plot_audio(raw_b64)
+        
+        # 2. PyTorch (Local Edge Inference)
+        from services.pytorch_engine import get_pytorch_threat_score
+        pytorch_results = get_pytorch_threat_score(raw_b64) 
+        
+        # 3. Hybrid AI Detective (Gemini Cloud w/ Ollama Offline Fallback)
+        from orchestrator import analyze
+        final_report = await analyze(
+            audio_base64=raw_b64, 
+            language=request.language
+        )
+        
+        return {
+            "status": "success",
+            "spectrogram": acoustic_data.get("spectrogram_image_base64", ""),
+            "metrics": acoustic_data.get("metrics", {"duration_seconds": 0, "snr_db": 0}),
+            "neural_score": pytorch_results,
+            "forensic_report": final_report
         }
-    }
 
+    except Exception as e:
+        logger.error(f"Pipeline Failure: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- MOUNT FRONTEND ---
+# This line makes your FastAPI server also host your HTML/CSS/JS!
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    logger.info("🚀 AudioAuth Hybrid Engine Online. Port: 8080")
+    uvicorn.run(app, host="0.0.0.0", port=8080)

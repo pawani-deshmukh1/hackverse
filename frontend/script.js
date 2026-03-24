@@ -43,6 +43,67 @@ const metaEngine = $('meta-engine');
 
 let audioFile = null;
 
+// --- Live Audio Capture Global Variables ---
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+
+// Initialize microphone access
+async function setupAudio() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+
+        mediaRecorder.ondataavailable = event => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.onstop = async () => {
+            console.log("Recording stopped, processing audio...");
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            audioFile = new File([audioBlob], "live_capture.wav", { type: 'audio/wav' });
+            
+            fileName.textContent = "Live Signal Captured";
+            fileInfo.classList.remove('hidden');
+            analyzeBtn.disabled = false;
+            
+            // Immediately trigger the analysis seamlessly
+            audioChunks = [];
+            analyzeBtn.click();
+        };
+    } catch (err) {
+        console.error("Microphone access denied or failed.", err);
+        alert("Please allow microphone access to use live capture.");
+    }
+}
+setupAudio();
+
+recordBtn.addEventListener('click', () => {
+    if (!mediaRecorder) {
+        setupAudio().then(() => toggleRecording());
+    } else {
+        toggleRecording();
+    }
+});
+
+function toggleRecording() {
+    if (!isRecording) {
+        mediaRecorder.start();
+        isRecording = true;
+        recordLabel.innerText = "RECORDING... (Click to Stop)";
+        recordBtn.style.borderColor = "#ff2222";
+        recordBtn.style.color = "#ff2222";
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        recordLabel.innerText = "RECORD AUDIO";
+        recordBtn.style.borderColor = "";
+        recordBtn.style.color = "";
+    }
+}
+
 // ─── Upload ──────────────────────────────────────────────────────────────────
 audioUpload.addEventListener('change', e => {
   const f = e.target.files[0];
@@ -66,39 +127,53 @@ analyzeBtn.addEventListener('click', async () => {
 
   setLoading(true);
 
-  const formData = new FormData();
-  formData.append('audio', audioFile);
-  formData.append('language', languageSelect.value);
+  console.log("Transmitting payload to Hybrid Engine...");
 
-  try {
-    const res = await fetch('http://localhost:8000/api/v1/analyze', {
-      method: 'POST',
-      body: formData
-    });
+  // Convert file to Base64 to align with the backend's AnalyzeRequest schema
+  const reader = new FileReader();
+  reader.readAsDataURL(audioFile);
+  reader.onload = async () => {
+      try {
+          // This removes the "data:audio/wav;base64," part
+          const base64Clean = reader.result.split(',')[1]; 
 
-    if (!res.ok) throw new Error();
+          const response = await fetch("http://localhost:8080/api/v1/analyze", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                  audio_base64: base64Clean, // Send the clean string
+                  language: languageSelect.value.toLowerCase() // Sends "english" instead of "en"
+              })
+          });
 
-    const data = await res.json();
-    renderResults(data);
+          if (!response.ok) {
+              throw new Error(`Server Error: ${response.status}`);
+          }
 
-  } catch (err) {
-    alert("⚠ Backend error. Using demo data.");
+          const data = await response.json();
+          console.log("Analysis Complete:", data);
 
-    renderResults({
-      type: "AI-GENERATED",
-      confidence: 85,
-      risk: "HIGH",
-      reason: ["Unnatural pitch", "No breathing variation"],
-      transcript: "This is a fake generated voice",
-      highlighted_words: ["fake", "generated"],
-      spectrogram: null,
-      duration: 4.5,
-      snr: 18,
-      engine: "Fallback"
-    });
-  }
+          // Render Results beautifully through the existing UI map
+          renderResults({
+              confidence: data.neural_score.score,
+              risk: data.forensic_report.risk_level,
+              reason: data.forensic_report.signals,
+              transcript: data.forensic_report.reasoning,
+              highlighted_words: ["AI", "synthetic", "human", "machine", "algorithm"],
+              spectrogram: data.spectrogram,
+              duration: data.metrics.duration_seconds || "N/A",
+              snr: data.metrics.snr_db || 0,
+              engine: data.forensic_report.engine_used || "Wav2Vec2 + Gemini"
+          });
 
-  setLoading(false);
+      } catch (error) {
+          console.error("Integration Error:", error);
+          alert("Pipeline failed. Check server console.");
+      }
+      setLoading(false);
+  };
 });
 
 // ─── Loading ─────────────────────────────────────────────────────────────────

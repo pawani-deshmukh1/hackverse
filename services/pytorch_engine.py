@@ -23,19 +23,41 @@ except Exception as e:
     logger.error(f"❌ Failed to load local model: {e}")
     voice_classifier = None
 
-def get_pytorch_threat_score(audio_file_path: str):
+def get_pytorch_threat_score(audio_input: str):
     """
     Analyzes audio locally using the Wav2Vec2 model.
+    Accepts either a file path OR a base64 string.
     """
+    import base64
+    import tempfile
+    
     if not voice_classifier:
         return {"label": "ERROR", "score": 0.0}
+        
+    is_temp = False
+    temp_path = ""
     
     try:
+        # Check if it's base64 (usually very long) or a file path
+        if len(audio_input) > 255 or audio_input.startswith("data:"):
+            raw_b64 = audio_input
+            if raw_b64.startswith("data:"):
+                raw_b64 = raw_b64.split(";base64,", 1)[-1]
+            
+            # Decode and save to temp file
+            audio_bytes = base64.b64decode(raw_b64 + "==")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+                temp_audio.write(audio_bytes)
+                temp_path = temp_audio.name
+                is_temp = True
+            
+            target_path = temp_path
+        else:
+            target_path = audio_input
+            
         # Run inference
-        results = voice_classifier(audio_file_path)
+        results = voice_classifier(target_path)
         
-        # The model usually returns labels like 'LABEL_0' (Human) and 'LABEL_1' (AI)
-        # OR 'real' and 'fake'. Let's find the 'fake' or 'AI' one.
         # We'll look for the highest score result.
         top_result = results[0]
         
@@ -53,3 +75,6 @@ def get_pytorch_threat_score(audio_file_path: str):
     except Exception as e:
         logger.error(f"Inference error: {e}")
         return {"label": "ERROR", "score": 0.0}
+    finally:
+        if is_temp and os.path.exists(temp_path):
+            os.remove(temp_path)

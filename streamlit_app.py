@@ -84,7 +84,7 @@ if audio_bytes:
         st.subheader("🕵️ 04 // AI Detective Report (Gemini)")
         if test_mode == "Hybrid (Full Pipeline)":
             # Simulate the orchestrator call
-            req = AnalyzeRequest(audio_data=b64_audio, language=language)
+            req = AnalyzeRequest(audio_base64=b64_audio, language=language.lower())
             try:
                 # Running the async orchestrator in a sync Streamlit environment
                 final_report = asyncio.run(analyze(req))

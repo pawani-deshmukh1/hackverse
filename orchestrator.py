@@ -33,17 +33,22 @@ def _extract_raw_b64(audio_b64: str) -> tuple[str, float]:
     return raw, size_kb
 
 
-async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
+async def analyze(audio_base64: str = None, language: str = "english", request: AnalyzeRequest = None) -> dict:
     start = time.monotonic()
 
-    # ── Validate & decode ──────────────────────────────────────────────────────
-    if len(request.audio_data.encode()) > settings.max_audio_b64_bytes:
-        raise ValueError(
-            f"audio_data exceeds maximum allowed size "
-            f"({settings.max_audio_b64_bytes // 1_000_000} MB encoded)"
-        )
+    # Support both schema and raw unpacking
+    if request:
+        raw_b64 = request.audio_data
+        lang = request.language
+    else:
+        raw_b64 = audio_base64
+        lang = language
 
-    raw_b64, size_kb = _extract_raw_b64(request.audio_data)
+    # ── Validate & decode ──────────────────────────────────────────────────────
+    if len(raw_b64.encode()) > settings.max_audio_b64_bytes:
+        raise ValueError(f"audio_data exceeds maximum allowed size")
+
+    raw_b64, size_kb = _extract_raw_b64(raw_b64)
 
     # Send only first 300 chars of b64 to the model
     b64_preview = raw_b64[:300]
@@ -56,26 +61,18 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
     # 2.5 💥 THE HEAVY HITTER: PyTorch Local Inference
     logger.info("🧠 Running local PyTorch Wav2Vec2 inference...")
     
-    # We need to save the base64 to a temporary file for the PyTorch model
-    audio_bytes = base64.b64decode(raw_b64)
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        temp_audio.write(audio_bytes)
-        temp_path = temp_audio.name
-        
+    # We now call it natively with Base64 since the PyTorch wrapper handles temp files perfectly!
     try:
-        pytorch_results = get_pytorch_threat_score(temp_path)
+        pytorch_results = get_pytorch_threat_score(raw_b64)
         logger.info(f"PyTorch Score: {pytorch_results['score']}% {pytorch_results['label']}")
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path) # Always clean up your temp files!
+    except Exception as e:
+        logger.error(f"Failed calling PyTorch: {e}")
+        pytorch_results = {"label": "ERROR", "score": 0.0}
 
     prompt = build_analysis_prompt(
-        b64_preview=b64_preview,
-        language=request.language,
-        sample_label=request.sample_label,
-        audio_size_kb=size_kb,
+        language=lang,
         audio_metrics=audio_metrics,
-        pytorch_results=pytorch_results,
+        pytorch_results=pytorch_results
     )
 
     result_dict = None
@@ -123,4 +120,6 @@ async def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
 
     processing_ms = int((time.monotonic() - start) * 1000)
 
-    return build_analyze_response(result_dict, engine_used, model_used, processing_ms, spectrogram_image)
+    # Dump the Pydantic schema to dictionary so main.py can unpack it easily
+    resp = build_analyze_response(result_dict, engine_used, model_used, processing_ms, spectrogram_image)
+    return resp.model_dump()
