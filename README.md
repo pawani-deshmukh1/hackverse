@@ -1,3 +1,8 @@
+# hackverse
+AudioAuth is an AI-powered API that detects whether a voice sample is human or AI-generated, helping prevent fraud and ensure media authenticity across multiple languages.
+
+
+
 # 🎙️ AudioAuth — Backend API
 
 AI vs Human voice classification engine built with **FastAPI**.  
@@ -151,5 +156,3 @@ audioauth/
     ├── claude_engine.py # Anthropic API client
     └── ollama_engine.py # Ollama local client
 ```
-# hackverse
-AudioAuth is an AI-powered API that detects whether a voice sample is human or AI-generated, helping prevent fraud and ensure media authenticity across multiple languages.
