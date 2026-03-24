@@ -13,26 +13,18 @@ class Language(str, Enum):
 
 
 class AnalyzeRequest(BaseModel):
-    audio_base64: str = Field(
-        ...,
-        description="Base64-encoded audio data. Accepts raw base64 or data URI (data:audio/mp3;base64,...)"
-    )
-    language: Language = Field(
-        Language.auto,
-        description="Language of the audio sample. Use 'auto' for automatic detection."
-    )
-    sample_label: Optional[str] = Field(
-        None,
-        max_length=200,
-        description="Optional label/filename for tracking purposes"
-    )
+    session_id: str = Field("demo_123", description="Session tracking ID")
+    audio_data: str = Field(..., alias="audio_base64", description="Base64-encoded audio data")
+    language: Language = Field(Language.auto)
+    sampling_rate: int = Field(16000)
+    sample_label: Optional[str] = Field(None)
 
-    @field_validator("audio_base64")
+    @field_validator("audio_data")
     @classmethod
     def validate_base64(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError("audio_base64 must not be empty")
+            raise ValueError("audio_data must not be empty")
         # Strip data URI prefix if present
         if v.startswith("data:"):
             if ";base64," not in v:
@@ -42,8 +34,10 @@ class AnalyzeRequest(BaseModel):
     model_config = {
         "json_schema_extra": {
             "example": {
+                "session_id": "demo_123",
                 "audio_base64": "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAP...",
                 "language": "english",
+                "sampling_rate": 16000,
                 "sample_label": "suspect_call_01.mp3"
             }
         }
@@ -85,7 +79,7 @@ class AnalyzeResponse(BaseModel):
     scores:              AcousticScores
     risk_level:          Literal["LOW", "MEDIUM", "HIGH"]
     recommendation:      str
-    engine_used:         Literal["claude", "ollama"] = Field(
+    engine_used:         Literal["gemini", "ollama", "pytorch"] = Field(
         ..., description="Which inference engine produced this result"
     )
     model_used:          str = Field(..., description="Exact model identifier used")
@@ -133,13 +127,13 @@ class EngineStatus(BaseModel):
 
 class HealthResponse(BaseModel):
     status:  Literal["healthy", "degraded", "unhealthy"]
-    claude:  EngineStatus
+    gemini:  EngineStatus
     ollama:  EngineStatus
-    primary: Literal["claude", "ollama"]
-    fallback: Literal["claude", "ollama"]
+    primary: Literal["gemini", "ollama"]
+    fallback: Literal["gemini", "ollama"]
 
 
 class ModelsResponse(BaseModel):
-    claude_model:  str
+    gemini_model:  str
     ollama_model:  str
     ollama_models_available: List[str]

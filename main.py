@@ -17,7 +17,7 @@ logger = logging.getLogger("audioauth")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🎙️  AudioAuth API starting up...")
-    logger.info("Primary  : Anthropic Claude API")
+    logger.info("Primary  : Gemini API")
     logger.info("Fallback : Ollama (llama3.1)")
     yield
     logger.info("AudioAuth API shutting down.")

@@ -10,18 +10,10 @@ logger = logging.getLogger("audioauth.routes.health")
 settings = get_settings()
 
 
-async def _check_claude() -> bool:
-    if not settings.anthropic_api_key:
+async def _check_gemini() -> bool:
+    if not settings.gemini_api_key:
         return False
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(
-                "https://api.anthropic.com/v1/models",
-                headers={"x-api-key": settings.anthropic_api_key, "anthropic-version": "2023-06-01"},
-            )
-            return resp.status_code == 200
-    except Exception:
-        return False
+    return True
 
 
 @router.get(
@@ -30,30 +22,30 @@ async def _check_claude() -> bool:
     summary="Check engine availability",
 )
 async def health_check() -> HealthResponse:
-    """Returns the status of Claude and Ollama engines."""
-    claude_ok = await _check_claude()
+    """Returns the status of Gemini and Ollama engines."""
+    gemini_ok = await _check_gemini()
     ollama_ok, ollama_models = await check_ollama_health()
 
-    if claude_ok and ollama_ok:
+    if gemini_ok and ollama_ok:
         status = "healthy"
-    elif claude_ok or ollama_ok:
+    elif gemini_ok or ollama_ok:
         status = "degraded"
     else:
         status = "unhealthy"
 
     return HealthResponse(
         status=status,
-        claude=EngineStatus(
-            available=claude_ok,
-            model=settings.claude_model,
-            note=None if claude_ok else "API key missing or unreachable",
+        gemini=EngineStatus(
+            available=gemini_ok,
+            model="gemini-2.5-flash",
+            note=None if gemini_ok else "API key missing",
         ),
         ollama=EngineStatus(
             available=ollama_ok,
             model=settings.ollama_model,
             note=None if ollama_ok else "Ollama not running — start with `ollama serve`",
         ),
-        primary="claude",
+        primary="gemini",
         fallback="ollama",
     )
 
@@ -67,7 +59,7 @@ async def list_models() -> ModelsResponse:
     """Returns configured model names and all locally available Ollama models."""
     _, ollama_models = await check_ollama_health()
     return ModelsResponse(
-        claude_model=settings.claude_model,
+        gemini_model="gemini-2.5-flash",
         ollama_model=settings.ollama_model,
         ollama_models_available=ollama_models,
     )

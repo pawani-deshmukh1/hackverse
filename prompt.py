@@ -10,69 +10,57 @@ SUPPORTED_LANGUAGES = {
 }
 
 
-def build_analysis_prompt(
-    b64_preview: str,
-    language: Language,
-    sample_label: str | None,
-    audio_size_kb: float,
-) -> str:
-    lang_instruction = (
-        f"The audio is expected to be in {SUPPORTED_LANGUAGES[language]}. Analyse accordingly."
-        if language != Language.auto
-        else "Auto-detect the spoken language from acoustic and phonetic cues."
-    )
+def build_analysis_prompt(language: str, audio_metrics: dict, pytorch_results: dict) -> str:
+    """
+    Constructs a high-precision forensic prompt using local ML scores and acoustic math.
+    """
+    
+    # Extract data for the prompt
+    duration = audio_metrics.get("duration_seconds", "Unknown")
+    snr = audio_metrics.get("snr_db", 0)
+    pt_label = pytorch_results.get("label", "Unknown")
+    pt_score = pytorch_results.get("score", 0)
 
-    label_line = f"Sample label : {sample_label}" if sample_label else "Sample label : (not provided)"
+    return f"""
+    SYSTEM ROLE: 
+    You are 'AudioAuth-Forensics', a specialized AI Auditor for the Indian Judiciary and Cyber-Crime cells. 
+    Your mission is to provide an EXPLAINABLE verdict on whether a voice sample is HUMAN or AI_GENERATED.
 
-    return f"""You are AudioAuth, a forensic audio analysis engine specialised in detecting AI-generated and synthetic voices.
+    --- DATA INPUTS ---
+    Target Language: {language}
+    Sample Duration: {duration} seconds
+    Acoustic SNR: {snr} dB
+    Local Neural Engine Score (Wav2Vec2): {pt_score}% probability of being {pt_label}
 
-Your job: analyse the provided audio metadata and classify the voice as HUMAN or AI_GENERATED.
+    --- FORENSIC CONTEXT ---
+    1. AI voices (ElevenLabs, RVC, VITS) often have an SNR > 25dB because they lack natural background 'room air'.
+    2. Deepfakes often show 'Spectral Aliasing' (ghosting in high frequencies) which our local model detects.
+    3. Humans have micro-tremors (jitter/shimmer) and irregular breathing pauses that AI models struggle to replicate.
 
---- SAMPLE INFO ---
-{label_line}
-Audio size   : {audio_size_kb:.1f} KB (encoded)
-Language     : {lang_instruction}
-Base64 prefix: {b64_preview}
-
---- DETECTION CRITERIA ---
-Analyse for the following acoustic indicators:
-1. Spectral envelope smoothness — AI voices are unnaturally consistent
-2. Prosody & intonation — AI often has flat or robotic rhythm
-3. Breath patterns — humans breathe; TTS models typically do not
-4. Vocal micro-variations — jitter, shimmer, formant wobble present in humans
-5. Phoneme boundary transitions — AI can produce over-smooth coarticulation
-6. Background and room noise consistency
-7. Emotional naturalness — pitch shifts during emphasis
-8. Clipping, artefacts, or codec anomalies typical of AI pipelines
-
---- OUTPUT FORMAT ---
-Respond with ONLY a valid JSON object, no markdown fences, no preamble, no trailing text.
-
-{{
-  "verdict": "HUMAN" | "AI_GENERATED",
-  "confidence": <integer 0-100>,
-  "language_detected": "<full language name>",
-  "language_confidence": <integer 0-100>,
-  "reasoning": "<2-3 sentences explaining the verdict>",
-  "signals": [
-    {{"type": "positive", "text": "<human-like signal>"}},
-    {{"type": "negative", "text": "<AI/synthetic signal>"}},
-    {{"type": "neutral",  "text": "<ambiguous signal>"}}
-  ],
-  "scores": {{
-    "prosody_naturalness":    <0-100>,
-    "spectral_authenticity":  <0-100>,
-    "breath_patterns":        <0-100>,
-    "vocal_micro_variations": <0-100>,
-    "phoneme_naturalness":    <0-100>
-  }},
-  "risk_level": "LOW" | "MEDIUM" | "HIGH",
-  "recommendation": "<one concise action recommendation>"
-}}
-
-Rules:
-- Include 3–5 signals covering both positive and negative findings
-- Be decisive — avoid hedging unless confidence is genuinely below 55
-- risk_level should be HIGH if verdict is AI_GENERATED and confidence > 70
-- Return ONLY the JSON object
-"""
+    --- TASK ---
+    Based on the {pt_score}% Neural Engine score, generate a structured forensic report. 
+    If the Neural Engine says AI_GENERATED and the SNR is high, be highly suspicious.
+    
+    OUTPUT FORMAT (Strict JSON only):
+    {{
+      "verdict": "HUMAN" | "AI_GENERATED",
+      "confidence": <integer 0-100>,
+      "language_detected": "{language}",
+      "language_confidence": 95,
+      "reasoning": "<2-3 professional sentences explaining the verdict based on the SNR and Neural Score>",
+      "signals": [
+        {{"type": "negative", "text": "Unnatural spectral smoothness detected by Wav2Vec2"}},
+        {{"type": "negative", "text": "Suspiciously high SNR ({snr}dB) suggests studio-clean synthesis"}},
+        {{"type": "positive", "text": "Natural prosody variance found in phoneme transitions"}}
+      ],
+      "scores": {{
+        "prosody_naturalness": <0-100>,
+        "spectral_authenticity": <0-100>,
+        "breath_patterns": <0-100>,
+        "vocal_micro_variations": <0-100>,
+        "phoneme_naturalness": <0-100>
+      }},
+      "risk_level": "LOW" | "MEDIUM" | "HIGH",
+      "recommendation": "<Actionable advice for a bank or court>"
+    }}
+    """

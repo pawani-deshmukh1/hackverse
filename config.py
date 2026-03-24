@@ -3,8 +3,9 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    # ── Anthropic ──────────────────────────────────────────────────────────────
+    # ── Anthropic / Gemini ──────────────────────────────────────────────────────
     anthropic_api_key: str = ""
+    gemini_api_key: str = "AIzaSyAJOZe_R4LFIos3N215KSfEy6KqwOPb528"
     claude_model: str = "claude-sonnet-4-20250514"
     claude_max_tokens: int = 1200
     claude_timeout: int = 30          # seconds
