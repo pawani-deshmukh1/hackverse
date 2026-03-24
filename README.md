@@ -109,6 +109,11 @@ https://drive.google.com/file/d/1eC1B_WbUS1x3aZ83vDKkDgq0Is2LTzpW/view?usp=drive
 
 ---
 
+## Presentation ppt
+https://github.com/pawani-deshmukh1/hackverse/blob/main/TECHKRUTI%20(1).pptx.pdf
+
+---
+
 ## 🎯 Conclusion
 
 AudioAuth provides a real-time, explainable, and scalable solution to detect AI-generated voices and prevent misuse.
