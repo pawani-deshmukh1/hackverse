@@ -36,13 +36,10 @@
 </head>
 <body class="bg-black text-white font-body min-h-screen overflow-x-hidden">
 
-  <!-- Scanline overlay -->
   <div class="scanlines"></div>
-
-  <!-- Grid background -->
   <div class="grid-bg"></div>
 
-  <!-- ===== HEADER ===== -->
+  <!-- HEADER -->
   <header class="relative z-10 border-b border-neon/20 px-6 py-5">
     <div class="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-4">
       <div class="flex items-center gap-4">
@@ -70,7 +67,7 @@
     </div>
   </header>
 
-  <!-- ===== MAIN ===== -->
+  <!-- MAIN -->
   <main class="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 
     <!-- TOP ROW: Input + Spectrogram -->
@@ -103,7 +100,7 @@
           <div>
             <label class="block font-mono text-xs text-neon/60 tracking-widest mb-2">// LIVE_CAPTURE</label>
             <button id="recordBtn" class="cyber-btn w-full group flex items-center justify-center gap-3 py-3">
-              <span class="rec-dot group-[.recording]:animate-pulse"></span>
+              <span class="rec-dot"></span>
               <span id="recordLabel" class="font-display text-xs tracking-widest">RECORD AUDIO</span>
               <span id="recordTimer" class="font-mono text-xs text-neon/50 hidden">00:00</span>
             </button>
@@ -132,7 +129,7 @@
           <!-- Analyze Button -->
           <button id="analyzeBtn" class="analyze-btn w-full py-4 font-display text-sm font-bold tracking-widest" disabled>
             <span id="analyzeBtnText">⚡ INITIATE ANALYSIS</span>
-            <span id="loadingSpinner" class="hidden">
+            <span id="loadingSpinner" class="hidden items-center gap-2">
               <span class="loading-ring"></span> PROCESSING...
             </span>
           </button>
@@ -145,25 +142,50 @@
           <span class="panel-tag">02</span>
           <h2 class="font-display text-sm font-bold tracking-widest text-neon">SPECTRAL ANALYSIS</h2>
         </div>
-        <div class="p-5 h-[calc(100%-52px)] flex flex-col">
-          <div id="spectrogramContainer" class="spectrogram-box flex-1 flex items-center justify-center relative overflow-hidden">
-            <!-- Idle state -->
+        <div class="p-5 flex flex-col gap-3">
+
+          <!-- Spectrogram viewer -->
+          <div id="spectrogramContainer" class="spectrogram-box flex items-center justify-center relative overflow-hidden" style="min-height:160px;">
             <div id="spectroIdle" class="text-center space-y-3">
-              <div class="spectrogram-grid-idle">
-                <div class="idle-bars" id="idleBars"></div>
-              </div>
+              <div class="idle-bars" id="idleBars"></div>
               <p class="font-mono text-xs text-neon/30 tracking-widest">AWAITING AUDIO INPUT</p>
             </div>
-            <!-- Real spectrogram -->
             <img id="spectrogramImg" src="" alt="Spectrogram" class="hidden w-full h-full object-cover spectrogram-img" />
           </div>
+
           <!-- Frequency labels -->
-          <div class="flex justify-between mt-2 px-1">
+          <div class="flex justify-between px-1">
             <span class="font-mono text-[10px] text-neon/30">0 Hz</span>
             <span class="font-mono text-[10px] text-neon/30">2k</span>
             <span class="font-mono text-[10px] text-neon/30">4k</span>
             <span class="font-mono text-[10px] text-neon/30">8k Hz</span>
           </div>
+
+          <!-- Artifact Sniper: full-res spectrogram render -->
+          <img id="spectrogram-render"
+               class="hidden w-full rounded border border-neon/40 spectrogram-render-img"
+               alt="Artifact Spectrogram" />
+
+          <!-- Metadata Footer -->
+          <div id="metadata" class="metadata-strip hidden px-3 py-2 flex flex-wrap gap-x-5 gap-y-1">
+            <span class="font-mono text-[11px]">
+              <span class="text-neon/40">DURATION </span>
+              <span id="meta-duration" class="text-neon/80">--</span>
+            </span>
+            <span class="font-mono text-[11px]">
+              <span class="text-neon/40">SNR </span>
+              <span id="meta-snr" class="text-neon/80">--</span>
+            </span>
+            <span class="font-mono text-[11px]">
+              <span class="text-neon/40">ENGINE </span>
+              <span id="meta-engine" class="text-neon/80">--</span>
+            </span>
+            <span class="font-mono text-[11px] ml-auto">
+              <span class="text-neon/30">SAMPLE_RATE </span>
+              <span id="meta-samplerate" class="text-neon/60">44.1 kHz</span>
+            </span>
+          </div>
+
         </div>
       </section>
     </div>
@@ -171,17 +193,91 @@
     <!-- RESULTS (hidden until analysis) -->
     <div id="resultsSection" class="hidden space-y-6">
 
-      <!-- CONFIDENCE + REPORT ROW -->
+      <!-- FORENSIC REPORT CARD -->
+      <section class="panel-card forensic-card">
+        <div class="panel-header">
+          <span class="panel-tag">03</span>
+          <h2 class="font-display text-sm font-bold tracking-widest text-neon">FORENSIC_REPORT</h2>
+          <span class="ml-auto font-mono text-[10px] text-neon/30 tracking-widest">// NEURAL_ANALYSIS_ENGINE</span>
+        </div>
+        <div class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-5">
+
+          <!-- Threat Level -->
+          <div class="forensic-cell">
+            <div class="font-mono text-[10px] text-neon/40 tracking-widest mb-3">THREAT_LEVEL</div>
+            <div class="flex items-center gap-3">
+              <div class="threat-ring-wrap">
+                <svg width="64" height="64" viewBox="0 0 64 64">
+                  <circle cx="32" cy="32" r="26" stroke="#1a1a1a" stroke-width="5" fill="none"/>
+                  <circle id="forensic-ring-arc" cx="32" cy="32" r="26" stroke="#00ff41" stroke-width="5" fill="none"
+                    stroke-dasharray="163.4" stroke-dashoffset="163.4"
+                    stroke-linecap="round" transform="rotate(-90 32 32)" style="transition:stroke-dashoffset 1s ease,stroke 0.4s;"/>
+                </svg>
+                <div class="threat-ring-inner">
+                  <span id="forensic-ring-pct" class="font-display text-xs font-bold text-neon">0%</span>
+                </div>
+              </div>
+              <div class="flex flex-col gap-2">
+                <span id="risk-level" class="font-display text-xs font-bold tracking-widest px-3 py-1 rounded risk-badge">--</span>
+                <span id="forensic-type-badge" class="font-mono text-[10px] text-white/40">TYPE: --</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Neural Score -->
+          <div class="forensic-cell">
+            <div class="font-mono text-[10px] text-neon/40 tracking-widest mb-3">NEURAL_SCORE</div>
+            <div class="space-y-3">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="font-mono text-[10px] text-white/30">AI PROBABILITY</span>
+                  <span id="forensic-conf-pct" class="font-mono text-[10px] text-neon/70">0%</span>
+                </div>
+                <div class="h-2 bg-white/5 rounded-full border border-white/10 overflow-hidden">
+                  <div id="confidence-bar" class="h-full rounded-full conf-bar-glow" style="width:0%;transition:width 1.2s cubic-bezier(0.4,0,0.2,1);"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="font-mono text-[10px] text-white/30">HUMAN SIGNATURE</span>
+                  <span id="forensic-human-pct" class="font-mono text-[10px] text-neon/70">0%</span>
+                </div>
+                <div class="h-2 bg-white/5 rounded-full border border-white/10 overflow-hidden">
+                  <div id="forensic-human-bar" class="h-full rounded-full" style="width:0%;background:#00ff41;transition:width 1.2s cubic-bezier(0.4,0,0.2,1) 0.2s;box-shadow:0 0 6px #00ff41;"></div>
+                </div>
+              </div>
+              <div class="flex gap-3 pt-1">
+                <div class="forensic-mini-stat">
+                  <span class="text-neon/30">SAMPLES</span>
+                  <span id="forensic-samples" class="text-neon/70">--</span>
+                </div>
+                <div class="forensic-mini-stat">
+                  <span class="text-neon/30">FREQ_BANDS</span>
+                  <span class="text-neon/70">128</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Anomaly Flags -->
+          <div class="forensic-cell sm:border-l sm:border-white/5 sm:pl-5">
+            <div class="font-mono text-[10px] text-neon/40 tracking-widest mb-3">ANOMALY_FLAGS</div>
+            <ul id="reasoning-list" class="space-y-1.5 max-h-[140px] overflow-y-auto pr-1 forensic-scroll"></ul>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- CONFIDENCE + DETECTIVE REPORT ROW -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <!-- CONFIDENCE SCORE -->
         <section class="panel-card">
           <div class="panel-header">
-            <span class="panel-tag">03</span>
+            <span class="panel-tag">04</span>
             <h2 class="font-display text-sm font-bold tracking-widest text-neon">CONFIDENCE MATRIX</h2>
           </div>
           <div class="p-5 space-y-6">
-            <!-- Big score -->
             <div class="text-center py-4">
               <div class="inline-block relative">
                 <svg class="score-ring" width="140" height="140" viewBox="0 0 140 140">
@@ -196,7 +292,6 @@
                 </div>
               </div>
             </div>
-            <!-- Progress bar -->
             <div>
               <div class="flex justify-between mb-2">
                 <span class="font-mono text-xs text-neon/50 tracking-widest">AUTHENTICITY SCORE</span>
@@ -206,12 +301,10 @@
                 <div id="confBar" class="h-full rounded-full transition-all duration-1000 w-0 conf-bar-glow"></div>
               </div>
             </div>
-            <!-- Risk Badge -->
             <div class="flex items-center justify-between px-4 py-3 border border-white/10 rounded bg-white/2">
               <span class="font-mono text-xs text-white/40 tracking-widest">RISK LEVEL</span>
               <span id="riskBadge" class="font-display text-sm font-bold tracking-widest px-3 py-1 rounded risk-badge">--</span>
             </div>
-            <!-- Attack type -->
             <div class="flex items-center justify-between px-4 py-3 border border-white/10 rounded bg-white/2">
               <span class="font-mono text-xs text-white/40 tracking-widest">ATTACK TYPE</span>
               <span id="attackType" class="font-mono text-xs text-neon tracking-widest">--</span>
@@ -222,14 +315,12 @@
         <!-- AI DETECTIVE REPORT -->
         <section class="panel-card">
           <div class="panel-header">
-            <span class="panel-tag">04</span>
+            <span class="panel-tag">05</span>
             <h2 class="font-display text-sm font-bold tracking-widest text-neon">AI DETECTIVE REPORT</h2>
           </div>
           <div class="p-5 space-y-4">
             <div class="font-mono text-xs text-neon/40 tracking-widest">// ANOMALY_SIGNATURES DETECTED:</div>
-            <ul id="reasonList" class="space-y-2">
-              <!-- Populated by JS -->
-            </ul>
+            <ul id="reasonList" class="space-y-2"></ul>
             <div class="border-t border-white/5 pt-4">
               <div class="font-mono text-xs text-neon/40 tracking-widest mb-3">// CLASSIFICATION_SUMMARY</div>
               <div class="report-terminal p-3 font-mono text-xs space-y-1">
@@ -246,14 +337,12 @@
       <!-- TRANSCRIPT SECTION -->
       <section class="panel-card">
         <div class="panel-header">
-          <span class="panel-tag">05</span>
+          <span class="panel-tag">06</span>
           <h2 class="font-display text-sm font-bold tracking-widest text-neon">TRANSCRIPT ANALYSIS</h2>
         </div>
         <div class="p-5">
           <div class="font-mono text-xs text-neon/40 tracking-widest mb-3">// DECODED_AUDIO_STREAM:</div>
-          <div id="transcriptBox" class="transcript-box p-4 font-body text-base leading-relaxed text-white/80 min-h-[80px]">
-            <!-- Populated by JS -->
-          </div>
+          <div id="transcriptBox" class="transcript-box p-4 font-body text-base leading-relaxed text-white/80 min-h-[80px]"></div>
           <div class="mt-3 flex items-center gap-4 flex-wrap">
             <div class="flex items-center gap-2">
               <span class="inline-block w-3 h-3 rounded-sm bg-danger/30 border border-danger/60"></span>
@@ -265,7 +354,7 @@
       </section>
 
       <!-- RECOMMENDED ACTION -->
-      <section id="actionAlert" class="action-alert">
+      <section id="actionAlert" class="action-alert panel-card">
         <div class="panel-header">
           <span class="panel-tag alert-tag">!</span>
           <h2 class="font-display text-sm font-bold tracking-widest">RECOMMENDED ACTION</h2>
@@ -291,11 +380,10 @@
 
   </main>
 
-  <!-- Footer -->
   <footer class="relative z-10 border-t border-white/5 px-6 py-4 mt-8">
     <div class="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-2">
-      <span class="font-mono text-[10px] text-white/20 tracking-widest">AUDIOAUTH v2.4.1 // NEURAL ENGINE ACTIVE</span>
-      <span class="font-mono text-[10px] text-white/20 tracking-widest">ENDPOINT: localhost:8000/analyze</span>
+      <span class="font-mono text-[10px] text-white/20 tracking-widest">AUDIOAUTH v2.5.0 // NEURAL ENGINE ACTIVE</span>
+      <span class="font-mono text-[10px] text-white/20 tracking-widest">ENDPOINT: localhost:8000/api/v1/analyze</span>
     </div>
   </footer>
 
