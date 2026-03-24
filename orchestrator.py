@@ -6,7 +6,7 @@ import os
 from schemas import AnalyzeRequest, AnalyzeResponse
 from prompt import build_analysis_prompt
 from services.gemini_engine import call_gemini, build_analyze_response
-from services.ollama_engine import call_ollama
+from ollama_engine import call_ollama
 from services.audio_processor import analyze_and_plot_audio
 from services.pytorch_engine import get_pytorch_threat_score
 from config import get_settings
